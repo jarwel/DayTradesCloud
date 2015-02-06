@@ -1,0 +1,11 @@
+{
+    "applications": {
+        "DayTrades": {
+            "applicationId": "nejKNcGGrt7CFNrKoQm0rdRmGWju7LzY7mp6HI5M", 
+            "masterKey": "aJepBfY45V2UJd0QQrz09vRafUON9bskWGMhmsnv"
+        }, 
+        "_default": {
+            "link": "DayTrades"
+        }
+    }
+}
