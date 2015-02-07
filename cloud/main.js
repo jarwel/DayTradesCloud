@@ -2,6 +2,8 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   Parse.Cloud.useMasterKey();
 
   var now = new Date();
+  var offset = (24*60*60*1000);
+  now.setTime(now.getTime() - offset);
   var day = ("0" + now.getDate()).slice(-2);
   var month = ("0" + (now.getMonth() + 1)).slice(-2);
   var date = now.getFullYear() + "-" + (month) + "-" + (day);
