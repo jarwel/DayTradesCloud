@@ -1,12 +1,18 @@
 Parse.Cloud.job("updatePicks", function(request, status) {
   Parse.Cloud.useMasterKey();
+
+  var now = new Date();
+  var day = ("0" + now.getDate()).slice(-2);
+  var month = ("0" + (now.getMonth() + 1)).slice(-2);
+  var today = now.getFullYear() + "-" + (month) + "-" + (day);
+
   var picks = new Parse.Query("Pick");
+  picks.equalTo("tradeDate", today);
   picks.each(function(pick) {
     var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
     var query = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
     var symbol = pick.get("symbol");
-    var tradeDate = pick.get("tradeDate");
-    var target = host.replace("QUERY", query.replace(/SYMBOL/g, symbol).replace(/DATE/g, tradeDate));
+    var target = host.replace("QUERY", query.replace(/SYMBOL/g, symbol).replace(/DATE/g, today));
     console.log(target);
    
     var promise = Parse.Promise.as();
