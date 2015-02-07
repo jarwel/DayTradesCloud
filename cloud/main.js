@@ -9,6 +9,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   var date = now.getFullYear() + "-" + (month) + "-" + (day);
 
   var picks = new Parse.Query("Pick");
+  picks.include("account");
   picks.equalTo("tradeDate", date);
   picks.each(function(pick) {
     var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
@@ -24,15 +25,22 @@ Parse.Cloud.job("updatePicks", function(request, status) {
         url: target,
         success: function(httpResponse) {
           console.log(httpResponse.text);
+
           var object = JSON.parse(httpResponse.text);
           var open = parseFloat(object.query.results.quote.Open);
           var close = parseFloat(object.query.results.quote.Close);
-          var value = pick.get("value");
+          var value = pick.get("account").get("value");
           var shares = Math.floor(value / open);
-          var change = (close * 100 - open * 100) * shares / 100;
+          var change = (Math.floor(close * 100) - Math.floor(open * 100)) * shares / 100;
+          
+          var account = pick.get("account");
+          account.set("value", (Math.floor(value * 100) + Math.floor(change * 100)) / 100);
+          account.save();
+ 
           pick.set("open", open);
           pick.set("close", close);
           pick.set("shares", shares);
+          pick.set("value", value);
           pick.set("change", change);
           return pick.save();
         },
