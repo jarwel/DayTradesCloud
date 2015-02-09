@@ -1,15 +1,18 @@
 Parse.Cloud.job("updatePicks", function(request, status) {
   Parse.Cloud.useMasterKey();
 
-  var now = new Date();
+  var date = new Date();
   var offset = (24*60*60*1000);
-  now.setTime(now.getTime() - offset);
-  var day = ("0" + now.getDate()).slice(-2);
-  var month = ("0" + (now.getMonth() + 1)).slice(-2);
-  var date = now.getFullYear() + "-" + (month) + "-" + (day);
+  date.setTime(date.getTime() - offset);
+  date.setHours(14);
+  date.setMinutes(30);
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+  console.log(date);
 
   var picks = new Parse.Query("Pick");
   picks.include("account");
+  picks.notEqualTo("processed", true);
   picks.equalTo("tradeDate", date);
   picks.each(function(pick) {
     var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
@@ -42,6 +45,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
           pick.set("shares", shares);
           pick.set("value", value);
           pick.set("change", change);
+          pick.set("processed", true);
           return pick.save();
         },
         error: function(httpResponse) {
