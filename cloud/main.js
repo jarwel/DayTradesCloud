@@ -1,6 +1,9 @@
 Parse.Cloud.job("updatePicks", function(request, status) {
   Parse.Cloud.useMasterKey();
 
+  var hostFormat = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
+  var queryFormat = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
+
   var date = new Date();
   var offset = (24*60*60*1000);
   date.setTime(date.getTime() - offset);
@@ -10,16 +13,18 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   date.setMilliseconds(0);
   console.log(date);
 
-  var picks = new Parse.Query("Pick");
-  picks.include("account");
-  picks.notEqualTo("processed", true);
-  picks.equalTo("tradeDate", date);
-  picks.each(function(pick) {
-    var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
-    var query = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
+  var year = date.getFullYear();
+  var month = ("0" + (date.getMonth() + 1)).slice(-2);
+  var day = ("0" + date.getDate()).slice(-2);  
+  var dateFormat = year + "-" + month + "-" + day;
+
+  var query = new Parse.Query("Pick");
+  query.include("account");
+  query.notEqualTo("processed", true);
+  query.equalTo("tradeDate", date);
+  query.each(function(pick) {
     var symbol = pick.get("symbol");
-    var tradeDate = pick.get("tradeDate");
-    var target = host.replace("QUERY", query.replace(/SYMBOL/g, symbol).replace(/DATE/g, tradeDate));
+    var target = hostFormat.replace("QUERY", queryFormat.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
     console.log(target);
    
     var promise = Parse.Promise.as();
