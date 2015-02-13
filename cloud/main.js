@@ -37,12 +37,23 @@ Parse.Cloud.job("updatePicks", function(request, status) {
           var object = JSON.parse(httpResponse.text);
           var open = parseFloat(object.query.results.quote.Open);
           var close = parseFloat(object.query.results.quote.Close);
-          var value = pick.get("account").get("value");
+          
+          var account = pick.get("account");
+          var value = account.get("value");
+          var winners = parseInt(account.get("winners"));
+          var losers = parseInt(account.get("losers"));
+
           var shares = value / open;
           var change = (Math.floor(close * 100) - Math.floor(open * 100)) * shares / 100;          
           
           var account = pick.get("account");
           account.set("value", (Math.floor(value * 100) + Math.floor(change * 100)) / 100);
+          if (change < 0) {
+            account.set("losers", losers + 1);
+	  }
+          else {
+            account.set("winners", winners + 1);
+          }
           account.save();
  
           pick.set("open", open);
