@@ -1,8 +1,8 @@
 Parse.Cloud.job("updatePicks", function(request, status) {
   Parse.Cloud.useMasterKey();
 
-  var hostFormat = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
-  var queryFormat = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
+  var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
+  var yql = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
 
   var date = new Date();
   var offset = (24*60*60*1000);
@@ -24,7 +24,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   query.equalTo("tradeDate", date);
   query.each(function(pick) {
     var symbol = pick.get("symbol");
-    var target = hostFormat.replace("QUERY", queryFormat.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
+    var target = host.replace("QUERY", yql.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
     console.log(target);
    
     var promise = Parse.Promise.as();
@@ -44,7 +44,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
           var losers = parseInt(account.get("losers"));
 
           var shares = value / open;
-          var change = (Math.floor(close * 100) - Math.floor(open * 100)) * shares / 100;          
+          var change = Math.floor((Math.floor(close * 100) - Math.floor(open * 100)) * shares) / 100;          
           
           var account = pick.get("account");
           account.set("value", (Math.floor(value * 100) + Math.floor(change * 100)) / 100);
