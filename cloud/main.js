@@ -4,14 +4,21 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
   var yql = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
 
-  var date = new Date();
-  var offset = (24*60*60*1000);
-  date.setTime(date.getTime() - offset);
+  var date;
+  if (request.params.date != null) {
+    date = new Date(request.params.date);
+    console.log("Running job for specified date: " + date);
+  }
+  else {
+    date = new Date();
+    date.setTime(date.getTime() - (24*60*60*1000));
+    console.log("Running job on scheduled date: " + date);
+  }
+
   date.setHours(14);
   date.setMinutes(30);
   date.setSeconds(0);
   date.setMilliseconds(0);
-  console.log(date);
 
   var year = date.getFullYear();
   var month = ("0" + (date.getMonth() + 1)).slice(-2);
