@@ -44,6 +44,11 @@ Parse.Cloud.job("updatePicks", function(request, status) {
           var object = JSON.parse(httpResponse.text);
           var open = parseFloat(object.query.results.quote.Open);
           var close = parseFloat(object.query.results.quote.Close);
+
+          if (open == null || close == null) {
+            console.error("Received an invalid response from yql");
+            return promise;
+          }
           
           var account = pick.get("account");
           var value = account.get("value");
