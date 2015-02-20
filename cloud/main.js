@@ -15,7 +15,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
     console.log("Running job on scheduled date: " + date);
   }
   date.setHours(14);
-  date.setMinutes(0);
+  date.setMinutes(30);
   date.setSeconds(0);
   date.setMilliseconds(0);
 
