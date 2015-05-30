@@ -14,10 +14,6 @@ Parse.Cloud.job("updatePicks", function(request, status) {
     date.setTime(date.getTime() - (24*60*60*1000));
     console.log("Running job on scheduled date: " + date);
   }
-  date.setHours(13);
-  date.setMinutes(30);
-  date.setSeconds(0);
-  date.setMilliseconds(0);
 
   var year = date.getFullYear();
   var month = ("0" + (date.getMonth() + 1)).slice(-2);
@@ -27,7 +23,7 @@ Parse.Cloud.job("updatePicks", function(request, status) {
   var query = new Parse.Query("Pick");
   query.include("account");
   query.notEqualTo("processed", true);
-  query.equalTo("tradeDate", date);
+  query.equalTo("dayOfTrade", dateFormat);
   query.each(function(pick) {
     var symbol = pick.get("symbol");
     var target = host.replace("QUERY", yql.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
