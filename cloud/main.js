@@ -27,7 +27,7 @@ Parse.Cloud.job("refreshSecurity", function(request, status) {
         }
         else {
             return security.destroy().then(null, function(error) {
-                return Parse.Promise.error("Error deleteing security");
+                return Parse.Promise.error("Error deleting security");
             });
         }
             
