@@ -1,3 +1,66 @@
+Parse.Cloud.job("refreshSecurity", function(request, status) {
+    Parse.Cloud.useMasterKey();
+
+    if (!request.params.symbol) {
+        status.error("Missing parameter symbol");
+    }
+    if (!request.params.name) { 
+        status.error("Missing parameter name");
+    }
+
+    var symbol = request.params.symbol.trim().toUpperCase();
+    var name = request.params.name.trim();
+  
+
+    Parse.Promise.as().then(function() {
+    
+        var query = new Parse.Query("Security");
+        query.equalTo("symbol", symbol);
+        return query.first().then(null, function(error) {
+            return Parse.Promise.error("Error fetching security");
+        });
+    
+    }).then(function(security) {
+        
+        if (!security) {
+            return Parse.Promise.as();
+        }
+        else {
+            return security.destroy().then(null, function(error) {
+                return Parse.Promise.error("Error deleteing security");
+            });
+        }
+            
+    }).then(function() {
+
+        var query = new Parse.Query("Pick");
+        query.equalTo("symbol", symbol);
+        query.equalTo("processed", true); 
+        return query.find().then(null, function(error) {
+            return Parse.Promise.error("Error fetching picks");
+        });
+  
+    }).then(function(picks) {
+
+        var Security = Parse.Object.extend("Security");
+        var security = new Security();
+        security.set("symbol", symbol);
+        security.set("name", name);
+        security.set("picks", picks.length);
+        return security.save().then(null, function(error) {
+            return Parse.Promise.error("Error saving security");
+        });
+       
+    }).then(function() {
+        status.success("Job execution completed");    
+    }, function(error) {
+        status.error("Job execution failed");
+    });
+    
+});
+
+
+
 Parse.Cloud.job("processPicks", function(request, status) {
   Parse.Cloud.useMasterKey();
    var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
@@ -108,7 +171,6 @@ Parse.Cloud.beforeSave("Security", function(request, response) {
       response.error("A security already exists with symbol " + symbol);
     }
     else {
-      request.object.set("picks", 0);
       response.success();
     }
   }, function(error) {
@@ -122,6 +184,7 @@ Parse.Cloud.beforeSave("Pick", function(request, response) {
   var Security = Parse.Object.extend("Security");
   var security = new Security();
   security.set("symbol", symbol);
+  security.set("picks", 0);
   security.save();
   response.success();
 });
