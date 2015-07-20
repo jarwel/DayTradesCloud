@@ -1,4 +1,100 @@
-Parse.Cloud.job("refreshSecurity", function(request, status) {
+Parse.Cloud.job("processPicks", function(request, status) {
+    Parse.Cloud.useMasterKey();
+    var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
+    var yql = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
+     
+    var date;
+    if (request.params.date != null) {
+        date = new Date(request.params.date);
+        console.log("Running job for specified date: " + date);
+    }
+    else {
+        date = new Date();
+        date.setTime(date.getTime() - (24*60*60*1000));
+        console.log("Running job on scheduled date: " + date);
+    }
+    var year = date.getFullYear();
+    var month = ("0" + (date.getMonth() + 1)).slice(-2);
+    var day = ("0" + date.getDate()).slice(-2);  
+    var dateFormat = year + "-" + month + "-" + day;
+     
+    var query = new Parse.Query("Pick");
+    query.include("account");
+    query.notEqualTo("processed", true);
+    query.equalTo("dayOfTrade", dateFormat);
+    query.each(function(pick) {
+        var symbol = pick.get("symbol");  
+ 
+        var promise = Parse.Promise.as().then(function() {
+  
+            var target = host.replace("QUERY", yql.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
+            console.log(target);
+      
+            return Parse.Cloud.httpRequest({ url: target }).then(null, function(error) {
+                return Parse.Promise.error("Failed to query yql");
+            });
+       
+        }).then(function(response) {
+  
+            console.log(response.text);  
+            var object = JSON.parse(response.text);
+            var open = parseFloat(object.query.results.quote.Open);
+            var close = parseFloat(object.query.results.quote.Close);
+    
+            if (open == null || close == null) {
+                return Parse.Promise.error("Received an invalid response from yql");
+            }    
+           
+            var account = pick.get("account");
+            var value = account.get("value");
+            var shares = value / open;
+            var change = Math.floor((Math.floor(close * 100) - Math.floor(open * 100)) * shares) / 100;          
+              
+            var account = pick.get("account");
+            account.set("value", (Math.floor(value * 100) + Math.floor(change * 100)) / 100);
+            if (change < 0) {
+                account.increment("losers", 1);
+            }
+            else {
+                account.increment("winners", 1);
+            }
+            account.save();
+     
+            pick.set("open", open);
+            pick.set("close", close);
+            pick.set("value", value);
+            pick.set("change", change);
+            pick.set("processed", true);    
+            return pick.save();
+ 
+        }).then(function() {
+       
+            var query = new Parse.Query("Stock");
+            query.equalTo("symbol", symbol);
+            return query.first().then(null, function(error) {
+                return Parse.Promise.error("Failed to fetch stock");
+            });
+ 
+        }).then(function(stock) {
+       
+            stock.increment("picks", 1);
+            return stock.save().then(null, function(error) {
+                return Parse.Promise.error("Failed to save stock");    
+            });
+            
+        });
+        return promise; 
+   
+    }).then(function() {
+        status.success("Job execution completed");    
+    }, function(error) {
+        status.error("Job execution failed");
+    });
+});
+
+
+
+Parse.Cloud.job("refreshStock", function(request, status) {
     Parse.Cloud.useMasterKey();
 
     if (!request.params.symbol) {
@@ -14,20 +110,20 @@ Parse.Cloud.job("refreshSecurity", function(request, status) {
 
     Parse.Promise.as().then(function() {
     
-        var query = new Parse.Query("Security");
+        var query = new Parse.Query("Stock");
         query.equalTo("symbol", symbol);
         return query.first().then(null, function(error) {
-            return Parse.Promise.error("Error fetching security");
+            return Parse.Promise.error("Error fetching stock");
         });
     
-    }).then(function(security) {
+    }).then(function(stock) {
         
-        if (!security) {
+        if (!stock) {
             return Parse.Promise.as();
         }
         else {
-            return security.destroy().then(null, function(error) {
-                return Parse.Promise.error("Error deleting security");
+            return stock.destroy().then(null, function(error) {
+                return Parse.Promise.error("Error deleting stock");
             });
         }
             
@@ -42,13 +138,13 @@ Parse.Cloud.job("refreshSecurity", function(request, status) {
   
     }).then(function(picks) {
 
-        var Security = Parse.Object.extend("Security");
-        var security = new Security();
-        security.set("symbol", symbol);
-        security.set("name", name);
-        security.set("picks", picks.length);
-        return security.save().then(null, function(error) {
-            return Parse.Promise.error("Error saving security");
+        var Stock = Parse.Object.extend("Stock");
+        var stock = new Stock();
+        stock.set("symbol", symbol);
+        stock.set("name", name);
+        stock.set("picks", picks.length);
+        return stock.save().then(null, function(error) {
+            return Parse.Promise.error("Error saving stock");
         });
        
     }).then(function() {
@@ -61,130 +157,33 @@ Parse.Cloud.job("refreshSecurity", function(request, status) {
 
 
 
-Parse.Cloud.job("processPicks", function(request, status) {
-  Parse.Cloud.useMasterKey();
-   var host = "http://query.yahooapis.com/v1/public/yql?q=QUERY&env=store://datatables.org/alltableswithkeys&format=json";
-   var yql = "select%20*%20from%20yahoo.finance.historicaldata%20where%20symbol%20=%20'SYMBOL'%20and%20startDate%20=%20'DATE'%20and%20endDate%20=%20'DATE'&env=store://datatables.org/alltableswithkeys&format=json";
-    
-  var date;
-  if (request.params.date != null) {
-    date = new Date(request.params.date);
-    console.log("Running job for specified date: " + date);
-  }
-  else {
-    date = new Date();
-    date.setTime(date.getTime() - (24*60*60*1000));
-    console.log("Running job on scheduled date: " + date);
-  }
-  var year = date.getFullYear();
-  var month = ("0" + (date.getMonth() + 1)).slice(-2);
-  var day = ("0" + date.getDate()).slice(-2);  
-  var dateFormat = year + "-" + month + "-" + day;
-    
-  var query = new Parse.Query("Pick");
-  query.include("account");
-  query.notEqualTo("processed", true);
-  query.equalTo("dayOfTrade", dateFormat);
-  query.each(function(pick) {
-    var symbol = pick.get("symbol");  
-
-    var promise = Parse.Promise.as().then(function() {
- 
-      var target = host.replace("QUERY", yql.replace(/SYMBOL/g, symbol).replace(/DATE/g, dateFormat));
-      console.log(target);
-     
-      return Parse.Cloud.httpRequest({ url: target }).then(null, function(error) {
-        return Parse.Promise.error("Failed to query yql");
-      });
-      
-    }).then(function(response) {
- 
-      console.log(response.text);  
-      var object = JSON.parse(response.text);
-      var open = parseFloat(object.query.results.quote.Open);
-      var close = parseFloat(object.query.results.quote.Close);
-   
-      if (open == null || close == null) {
-        return Parse.Promise.error("Received an invalid response from yql");
-      }    
-          
-      var account = pick.get("account");
-      var value = account.get("value");
-      var shares = value / open;
-      var change = Math.floor((Math.floor(close * 100) - Math.floor(open * 100)) * shares) / 100;          
-             
-      var account = pick.get("account");
-      account.set("value", (Math.floor(value * 100) + Math.floor(change * 100)) / 100);
-      if (change < 0) {
-        account.increment("losers", 1);
-      }
-      else {
-        account.increment("winners", 1);
-      }
-      account.save();
-    
-      pick.set("open", open);
-      pick.set("close", close);
-      pick.set("value", value);
-      pick.set("change", change);
-      pick.set("processed", true);    
-      return pick.save();
-
-    }).then(function() {
-      
-      var query = new Parse.Query("Security");
-      query.equalTo("symbol", symbol);
-      return query.first().then(null, function(error) {
-        return Parse.Promise.error("Failed to fetch security");
-      });
-
-    }).then(function(security) {
-      
-      security.increment("picks", 1);
-      return security.save();      
-
-    }).then(function() {
-      return Parse.Promise.as();
-    }, function(error) {
-      return Parse.Promise.error();
-  });
-  return promise; 
-  
-  }).then(function() {
-    status.success("Job execution completed");    
-  }, function(error) {
-    status.error("Job execution failed");
-  });
-});
-
-
-
-Parse.Cloud.beforeSave("Security", function(request, response) {
+Parse.Cloud.beforeSave("Stock", function(request, response) {
   if (!request.object.isNew()) {
     response.success();
   }
   var symbol = request.object.get("symbol");
-  var query = new Parse.Query("Security");
+  var query = new Parse.Query("Stock");
   query.equalTo("symbol", symbol);
   query.first().then(function(object) {
     if (object) { 
-      response.error("A security already exists with symbol " + symbol);
+      response.error("A stock already exists with symbol " + symbol);
     }
     else {
       response.success();
     }
   }, function(error) {
-    response.error("Could not validate uniqueness of security");
+    response.error("Could not validate uniqueness of stock");
   });
 });
 
 
+
 Parse.Cloud.beforeSave("Pick", function(request, response) {
   var symbol = request.object.get("symbol");
-  var Security = Parse.Object.extend("Security");
-  var security = new Security();
-  security.set("symbol", symbol);
-  security.set("picks", 0);
-  security.save();
+  var Stock = Parse.Object.extend("Stock");
+  var stock = new Stock();
+  stock.set("symbol", symbol);
+  stock.set("picks", 0);
+  stock.save();
   response.success();
 });
