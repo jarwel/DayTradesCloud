@@ -160,7 +160,7 @@ Parse.Cloud.job("refreshStock", function(request, status) {
 
 Parse.Cloud.beforeSave("Account", function(request, response) {
     if (request.object.isNew()) {
-        request.object.set("value", 10000.00);
+        request.object.set("value", 10000);
         request.object.set("picks", 0);
         request.object.set("winners", 0);
         request.object.set("losers", 0);
