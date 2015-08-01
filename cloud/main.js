@@ -58,6 +58,7 @@ Parse.Cloud.job("processPicks", function(request, status) {
             else {
                 account.increment("winners", 1);
             }
+            account.increment("picks", 1);
             account.save();
      
             pick.set("open", open);
@@ -153,6 +154,18 @@ Parse.Cloud.job("refreshStock", function(request, status) {
         status.error("Job execution failed");
     });
     
+});
+
+
+
+Parse.Cloud.beforeSave("Account", function(request, response) {
+    if (request.object.isNew()) {
+        request.object.set("value", 10000.00);
+        request.object.set("picks", 0);
+        request.object.set("winners", 0);
+        request.object.set("losers", 0);
+    }
+    response.success();
 });
 
 
